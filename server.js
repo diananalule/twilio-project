@@ -1,9 +1,4 @@
-try {
-                    const guardData = await guardTourAPI.getGuardInfo(entities.guardName);
-                    return guardData.message;
-                } catch (error) {
-                    return `❌ Sorry, I couldn't fetch information for guard ${entities.guardName}. ${error.message}`;
-                }// server.js - Updated WhatsApp Webhook Server with GuardTour API Integration
+// server.js - Updated WhatsApp Webhook Server with GuardTour API Integration
 require('dotenv').config();
 const express = require('express');
 const twilio = require('twilio');
@@ -85,16 +80,16 @@ function extractEntities(message) {
         timeframe: null
     };
 
-    // Extract site name (look for common site patterns)
-    const siteMatches = message.match(/(?:site\s+)?([A-Za-z0-9\s]+?)(?:\s+(?:site|yesterday|today|report|info))/i);
-    if (siteMatches) {
-        entities.siteName = siteMatches[1].trim();
+    // Extract site name after "for", "about", or "of"
+    const siteMatch = message.match(/(?:for|about|of)\s+([A-Za-z0-9\s\-\(\)]+)$/i);
+    if (siteMatch) {
+        entities.siteName = siteMatch[1].trim();
     }
 
-    // Extract guard name
-    const guardMatches = message.match(/guard\s+([A-Za-z\s]+?)(?:\s+(?:report|info|status))/i);
-    if (guardMatches) {
-        entities.guardName = guardMatches[1].trim();
+    // Extract guard name after "guard"
+    const guardMatch = message.match(/guard\s+([A-Za-z\s]+)/i);
+    if (guardMatch) {
+        entities.guardName = guardMatch[1].trim();
     }
 
     // Extract time references
@@ -164,23 +159,34 @@ async function generateResponse(intent, entities, userPhone) {
                 }
                 
                 try {
-                    const guardData = await askariAPI.getGuardInfo(entities.guardName);
+                    const guardData = await guardTourAPI.getGuardInfo(entities.guardName);
                     return guardData.message;
                 } catch (error) {
                     return `❌ Sorry, I couldn't fetch information for guard ${entities.guardName}. ${error.message}`;
                 }
 
-            case 'incident_report':
+            case 'site_performance':
+                if (!entities.siteName) {
+                    return `📊 Please specify which site you'd like the performance report for.\n\nExample: "Performance for Site Alpha"`;
+                }
                 try {
-                    const incidentData = await askariAPI.getIncidentReports(entities.siteName, entities.date);
-                    return incidentData.message;
+                    const performanceData = await guardTourAPI.getSitePerformance(entities.siteName, entities.timeframe);
+                    return performanceData.message;
                 } catch (error) {
-                    return `❌ Sorry, I couldn't fetch incident reports. ${error.message}`;
+                    return `❌ Sorry, I couldn't fetch performance data for ${entities.siteName}. ${error.message}`;
+                }
+
+            case 'system_stats':
+                try {
+                    const statsData = await guardTourAPI.getSystemStats();
+                    return statsData.message;
+                } catch (error) {
+                    return `❌ Sorry, I couldn't fetch system statistics. ${error.message}`;
                 }
 
             case 'list_sites':
                 try {
-                    const sites = await askariAPI.getAllSites();
+                    const sites = await guardTourAPI.getAllSites();
                     if (sites && sites.length > 0) {
                         let message = `🏢 **All Sites:**\n\n`;
                         sites.forEach((site, index) => {
@@ -197,7 +203,7 @@ async function generateResponse(intent, entities, userPhone) {
                 }
 
             case 'help':
-                return `🤖 **Askari WhatsApp Assistant**\n\nI can help you with:\n\n📋 **Patrol Reports**\n"Show patrol report for Site Alpha"\n"Get patrol status for Site Beta"\n\n🏢 **Site Information**\n"Tell me about Site Alpha"\n"Site info for Site Beta"\n\n👮 **Guard Information**\n"Guard info for John"\n"Tell me about guard Mary"\n\n🚨 **Incident Reports**\n"Show incidents for Site Alpha"\n"Get incident reports"\n\n📋 **List All Sites**\n"List all sites"\n"Show all sites"\n\nJust ask me naturally - I understand various ways of asking!`;
+                return `🤖 **Askari WhatsApp Assistant**\n\nI can help you with:\n\n📋 **Patrol Reports**\n"Show patrol report for Site Alpha"\n"Get patrol status for Site Beta"\n\n🏢 **Site Information**\n"Tell me about Site Alpha"\n"Site info for Site Beta"\n\n👮 **Guard Information**\n"Guard info for John"\n"Tell me about guard Mary"\n\n📊 **Site Performance**\n"Performance for Site Alpha"\n\n📈 **System Stats**\n"System stats"\n"Dashboard"\n\n📋 **List All Sites**\n"List all sites"\n"Show all sites"\n\nJust ask me naturally - I understand various ways of asking!`;
 
             default:
                 return `I didn't understand that request. Type "help" to see what I can do for you.`;
@@ -261,7 +267,7 @@ app.get('/health', (req, res) => {
 // Test API connection endpoint
 app.get('/test-api', async (req, res) => {
     try {
-        const result = await askariAPI.testConnection();
+        const result = await guardTourAPI.testConnection();
         res.json(result);
     } catch (error) {
         res.status(500).json({ 
@@ -280,12 +286,12 @@ app.listen(port, () => {
     console.log(`🧪 API test: http://localhost:${port}/test-api`);
     
     // Test API connection on startup
-    askariAPI.testConnection()
+    guardTourAPI.testConnection()
         .then(result => {
             if (result.success) {
-                console.log('✅ Askari API connection verified');
+                console.log('✅ GuardTour API connection verified');
             } else {
-                console.warn('⚠️  Askari API connection issue:', result.message);
+                console.warn('⚠️  GuardTour API connection issue:', result.message);
             }
         })
         .catch(error => {
