@@ -4,7 +4,7 @@ const axios = require('axios');
 class GuardTourAPI {
     constructor() {
         // Configure your GuardTour API base URL and authentication
-        this.baseURL = process.env.ASKARI_API_URL || 'https://guardtour.legitsystemsug.com/api';
+        this.baseURL = process.env.ASKARI_API_URL || 'https://guardtour.legitsystemsug.com';
         this.authToken = process.env.ASKARI_AUTH_TOKEN;
         
         // Create axios instance with default configuration
@@ -56,7 +56,7 @@ class GuardTourAPI {
 
             // Get patrols for this site
             const response = await this.client.get(`/sites/${site.id}/patrols`);
-            return this.formatPatrolReports(response.data, siteName);
+            return this.formatPatrolReports(response.data.data, siteName); // Use .data
         } catch (error) {
             console.error('❌ Error fetching patrol reports:', error.message);
             throw new Error('Failed to fetch patrol reports. Please try again.');
@@ -76,7 +76,7 @@ class GuardTourAPI {
 
             // Get detailed site information
             const response = await this.client.get(`/sites/${site.id}`);
-            return this.formatSiteInfo(response.data);
+            return this.formatSiteInfo(response.data.data); // Use .data
         } catch (error) {
             console.error('❌ Error fetching site info:', error.message);
             throw new Error('Failed to fetch site information. Please try again.');
@@ -133,7 +133,7 @@ class GuardTourAPI {
                 response = await this.client.get(`/sites/${site.id}/${year}/${month}/performance`);
             }
 
-            return this.formatPerformanceReport(response.data, siteName, timeframe);
+            return this.formatPerformanceReport(response.data.data, siteName, timeframe); // Use .data
         } catch (error) {
             console.error('❌ Error fetching site performance:', error.message);
             throw new Error('Failed to fetch site performance data. Please try again.');
@@ -144,7 +144,7 @@ class GuardTourAPI {
     async getAllSites() {
         try {
             const response = await this.client.get('/sites');
-            return response.data;
+            return response.data.data; // Return the array directly
         } catch (error) {
             console.error('❌ Error fetching sites:', error.message);
             throw new Error('Failed to fetch sites list. Please try again.');
@@ -166,11 +166,11 @@ class GuardTourAPI {
     async findSiteByName(siteName) {
         try {
             const response = await this.client.get('/sites');
-            const sites = response.data;
-            
-            return sites.find(site => 
-                site.name?.toLowerCase().includes(siteName.toLowerCase()) ||
-                site.title?.toLowerCase().includes(siteName.toLowerCase())
+            const sites = response.data.data; // <-- FIXED: use .data.data
+
+            // Use case-insensitive, trimmed comparison
+            return sites.find(site =>
+                site.name && site.name.trim().toLowerCase() === siteName.trim().toLowerCase()
             );
         } catch (error) {
             console.error('❌ Error finding site:', error.message);
