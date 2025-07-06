@@ -1,4 +1,4 @@
-
+import "dotenv/config";
 import GuardTourAPI from './askari-api.js';
 
 const CONFIG = {

@@ -1,4 +1,8 @@
 // server.js - Updated WhatsApp Webhook Server with GuardTour API Integration
+// TODO: Improve parsing when user is querying for site performace(Capture year, month and day(if given)). day is optional
+// TODO: Extract start and end date when user is querying for patrols. It is important to know that both dates are optional
+// TODO: Add pagination to all api methods that return collection of entities i.e patrols, sites
+
 import "dotenv/config";
 import express from "express";
 import twilio from "twilio";
@@ -9,6 +13,7 @@ const port = process.env.PORT || 3000;
 
 // Initialize GuardTour API client
 const guardTourAPI = new GuardTourAPI();
+
 
 // Middleware
 app.use(express.urlencoded({ extended: true }));
