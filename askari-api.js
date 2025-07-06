@@ -1,24 +1,37 @@
 // askari-api.js - GuardTour API Integration Module
-const axios = require('axios');
+import axios from "axios";
+import AuthTokenManager from "./auth-token-manager.js";
 
-class GuardTourAPI {
-    constructor() {
-        // Configure your GuardTour API base URL and authentication
-        this.baseURL = process.env.ASKARI_API_URL || 'https://guardtour.legitsystemsug.com';
-        this.authToken = process.env.ASKARI_AUTH_TOKEN;
+const authTokenManager = await AuthTokenManager.create("./token.json");
+
+export default class GuardTourAPI {
+    baseURL = 'https://guardtour.legitsystemsug.com';
+    constructor(username, password) {
+        this.authTokenManager = authTokenManager;
+        this.username = username;
+        this.password = password;
+        this.responseTimeout = 10000; // 10 seconds
         
         // Create axios instance with default configuration
-        this.client = axios.create({
+        this.authorizedClient = axios.create({
             baseURL: this.baseURL,
-            timeout: 10000, // 10 second timeout
+            timeout: this.responseTimeout,
             headers: {
                 'Authorization': `Bearer ${this.authToken}`,
                 'Content-Type': 'application/json'
             }
         });
 
+        this.unauthorizedClient = axios.create({
+            baseURL: this.baseURL,
+            timeout: this.responseTimeout,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
         // Add request interceptor for logging
-        this.client.interceptors.request.use(
+        axios.interceptors.request.use(
             (config) => {
                 console.log(`🔄 API Request: ${config.method?.toUpperCase()} ${config.url}`);
                 return config;
@@ -30,7 +43,7 @@ class GuardTourAPI {
         );
 
         // Add response interceptor for error handling
-        this.client.interceptors.response.use(
+        axios.interceptors.response.use(
             (response) => {
                 console.log(`✅ API Response: ${response.status} ${response.config.url}`);
                 return response;
@@ -40,6 +53,26 @@ class GuardTourAPI {
                 return Promise.reject(error);
             }
         );
+
+        // Authentication token interceptor
+        this.authorizedClient.interceptors.request.use(async (config) => {
+            let token;
+            if(await this.authTokenManager.isExpired()) {
+                token = await this.authenticate();
+                await this.authTokenManager.save(token);
+            } else {
+                token = await this.authTokenManager.read();
+            }
+            config.headers.Authorization = `Bearer ${token}`;
+            return config;
+        }, error => {
+            return Promise.reject(error);
+        });
+    }
+
+    async authenticate() {
+        const response = await axios.post(`${this.baseURL}/auth/signin`, {username: this.username, password: this.password});
+        return response.data["access_token"];
     }
 
     // Get patrol reports for a specific site
@@ -53,9 +86,12 @@ class GuardTourAPI {
                     hasData: false
                 };
             }
-
+            let params = {}
+            if(date) {
+                params["filter.date"] = "$gte:" + `${new Date(date).toISOString()}`;
+            }
             // Get patrols for this site
-            const response = await this.client.get(`/sites/${site.id}/patrols`);
+            const response = await this.unauthorizedClient.get(`/sites/${site.id}/patrols`, {params: params});
             return this.formatPatrolReports(response.data.data, siteName); // Use .data
         } catch (error) {
             console.error('❌ Error fetching patrol reports:', error.message);
@@ -75,27 +111,23 @@ class GuardTourAPI {
             }
 
             // Get detailed site information
-            const response = await this.client.get(`/sites/${site.id}`);
-            return this.formatSiteInfo(response.data.data); // Use .data
+            //const response = await this.authorizedClient.get(`/sites/${site.id}`);
+            return this.formatSiteInfo(site); // Use .data
         } catch (error) {
             console.error('❌ Error fetching site info:', error.message);
             throw new Error('Failed to fetch site information. Please try again.');
         }
     }
 
+    async getGuardByName(guardName) {
+        const response = await this.authorizedClient.get('/users/security-guards', {params: {search: guardName, limit: 100}});
+        const guards = response.data.data.map(guard => ({...guard, fullName: `${guard.firstName} ${guard.lastName}`}));
+        return guards.find(guard => guard.fullName.toLowerCase().includes(guardName.toLowerCase()));
+    }
     // Get guard information
     async getGuardInfo(guardName) {
         try {
-            // Get all security guards and find by name
-            const response = await this.client.get('/users/security-guards');
-            const guards = response.data;
-            
-            const guard = guards.find(g => 
-                g.name?.toLowerCase().includes(guardName.toLowerCase()) ||
-                g.firstName?.toLowerCase().includes(guardName.toLowerCase()) ||
-                g.lastName?.toLowerCase().includes(guardName.toLowerCase())
-            );
-
+            const guard = await this.getGuardByName(guardName);
             if (!guard) {
                 return {
                     message: `Guard "${guardName}" not found. Please check the name and try again.`,
@@ -128,9 +160,9 @@ class GuardTourAPI {
 
             let response;
             if (timeframe === 'today') {
-                response = await this.client.get(`/sites/${site.id}/${year}/${month}/${day}/performance`);
+                response = await this.authorizedClient.get(`/sites/${site.id}/${year}/${month}/${day}/performance`);
             } else {
-                response = await this.client.get(`/sites/${site.id}/${year}/${month}/performance`);
+                response = await this.authorizedClient.get(`/sites/${site.id}/${year}/${month}/performance`);
             }
 
             return this.formatPerformanceReport(response.data.data, siteName, timeframe); // Use .data
@@ -143,7 +175,7 @@ class GuardTourAPI {
     // Get all sites
     async getAllSites() {
         try {
-            const response = await this.client.get('/sites');
+            const response = await this.authorizedClient.get('/sites');
             return response.data.data; // Return the array directly
         } catch (error) {
             console.error('❌ Error fetching sites:', error.message);
@@ -154,7 +186,7 @@ class GuardTourAPI {
     // Get system stats
     async getSystemStats() {
         try {
-            const response = await this.client.get('/stats');
+            const response = await this.authorizedClient.get('/stats');
             return this.formatSystemStats(response.data);
         } catch (error) {
             console.error('❌ Error fetching system stats:', error.message);
@@ -165,7 +197,7 @@ class GuardTourAPI {
     // Helper method to find site by name
     async findSiteByName(siteName) {
         try {
-            const response = await this.client.get('/sites');
+            const response = await this.authorizedClient.get('/sites', {params: {search: siteName, limit: 100}});
             const sites = response.data.data; // <-- FIXED: use .data.data
 
             // Use case-insensitive, trimmed comparison
@@ -378,7 +410,7 @@ class GuardTourAPI {
     // Test API connection
     async testConnection() {
         try {
-            const response = await this.client.get('/stats');
+            const response = await this.authorizedClient.get('/stats');
             console.log('✅ API Connection successful');
             return { success: true, message: 'API connection successful' };
         } catch (error) {
@@ -387,5 +419,3 @@ class GuardTourAPI {
         }
     }
 }
-
-module.exports = GuardTourAPI;

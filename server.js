@@ -1,14 +1,19 @@
 // server.js - Updated WhatsApp Webhook Server with GuardTour API Integration
-require('dotenv').config();
-const express = require('express');
-const twilio = require('twilio');
-const GuardTourAPI = require('./askari-api');
+// TODO: Improve parsing when user is querying for site performace(Capture year, month and day(if given)). day is optional
+// TODO: Extract start and end date when user is querying for patrols. It is important to know that both dates are optional
+// TODO: Add pagination to all api methods that return collection of entities i.e patrols, sites
+
+import "dotenv/config";
+import express from "express";
+import twilio from "twilio";
+import GuardTourAPI from './askari-api.js';
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 // Initialize GuardTour API client
 const guardTourAPI = new GuardTourAPI();
+
 
 // Middleware
 app.use(express.urlencoded({ extended: true }));
@@ -122,9 +127,18 @@ function recognizeIntent(message) {
     
     return 'unknown';
 }
+function createOrGetAuthToken() {
+    // 1. Read the auth token from the token storage
+    // 2. Verify the validity of the token.
+    // 3. If the token is expired, get another from the server(guard tour API)
+    //  a. Overwrite the existing token
+    //  b. Return the new token
+    // 4. otherwise return the stored token(the one read in the first step)
+}
 
 // Enhanced response generation with real API calls
 async function generateResponse(intent, entities, userPhone) {
+    const authToken = createOrGetAuthToken();
     try {
         console.log(`🎯 Processing intent: ${intent}`, entities);
 
