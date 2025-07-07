@@ -4,7 +4,7 @@ import GuardTourAPI from './askari-api.js';
 const CONFIG = {
     username: process.env.ASKARI_API_USERNAME,
     password: process.env.ASKARI_API_PASSWORD,
-    testSiteName: 'Vicland Distributors Limited Apartments',
+    testSiteName: 'Test site',
     testGuardName: 'Rebecca',
     testDate: '2024-07-01' // Test date for filtering
 };
@@ -202,16 +202,16 @@ class APITester {
         const testSite = sites && sites.length > 0 ? sites[0].name : CONFIG.testSiteName;
 
         // Test 4: Find site by name
-        const foundSite = await this.testFindSiteByName(testSite);
+        const foundSite = await this.testFindSiteByName(CONFIG.testSiteName);
 
         // Test 5: Get site info
-        await this.testGetSiteInfo(testSite);
+        await this.testGetSiteInfo(CONFIG.testSiteName);
 
         // Test 6: Get patrol reports (no date filter)
-        await this.testGetPatrolReports(testSite);
+        await this.testGetPatrolReports(CONFIG.testSiteName);
 
         // Test 7: Get patrol reports (with date filter)
-        await this.testGetPatrolReportsWithDate(testSite, CONFIG.testDate);
+        await this.testGetPatrolReportsWithDate(CONFIG.testSiteName, CONFIG.testDate);
 
         // Test 8: Get guard by name
         await this.testGetGuardByName(CONFIG.testGuardName);
