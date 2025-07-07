@@ -222,9 +222,11 @@ export default class GuardTourAPI {
         let message = `📋 **Patrol Reports - ${siteName}**\n\n`;
         
         data.slice(0, 5).forEach((patrol, index) => { // Limit to 5 most recent
+            const guardName = patrol?.securityGuard ? `${patrol.securityGuard.firstName} ${patrol.securityGuard.lastName}` : null;
             message += `**Patrol ${index + 1}:**\n`;
-            message += `👮 Guard: ${patrol.guardName || patrol.guard?.name || 'N/A'}\n`;
-            message += `⏰ Time: ${this.formatDateTime(patrol.timestamp || patrol.createdAt)}\n`;
+            message += `👮 Guard: ${guardName || 'N/A'}\n`;
+            message += `👮 Guard Tag: ${patrol.securityGuardUniqueId || 'N/A'}\n`;
+            message += `⏰ Time: ${this.formatDateTime(`${patrol.date}T${patrol.startTime}`)}\n`;
             message += `📍 Status: ${patrol.status || 'Completed'}\n`;
             
             if (patrol.location) {
