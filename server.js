@@ -7,6 +7,7 @@ import "dotenv/config";
 import express from "express";
 import twilio from "twilio";
 import GuardTourAPI from './askari-api.js';
+import { getIntentAndEntities } from "./gemini-nlu.js";
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -231,40 +232,64 @@ async function generateResponse(intent, entities, userPhone) {
 // Main webhook endpoint
 app.post('/webhook', async (req, res) => {
     try {
-        console.log('📨 Received WhatsApp message:', {
-            from: req.body.From,
-            message: req.body.Body,
-            profileName: req.body.ProfileName
-        });
-
         const incomingMessage = req.body.Body;
         const userPhone = req.body.From;
-        
-        // Recognize intent and extract entities
-        const intent = recognizeIntent(incomingMessage);
-        const entities = extractEntities(incomingMessage);
-        
-        console.log('🧠 Recognized:', { intent, entities });
-        
-        // Generate response using real API data
-        const responseMessage = await generateResponse(intent, entities, userPhone);
-        
-        // Create Twilio response
+
+        // Use Gemini to extract intent and entities
+        const nluResult = await getIntentAndEntities(incomingMessage);
+
+        let responseMessage = "Sorry, I didn't understand that. Please try rephrasing your request.";
+        if (nluResult && nluResult.intent) {
+            // Map Gemini intent to your API functions
+            switch (nluResult.intent) {
+                case "getPatrolReports":
+                    responseMessage = await guardTourAPI.getPatrolReports(nluResult.entities.siteName, nluResult.entities.date);
+                    break;
+                case "getSiteInfo":
+                    responseMessage = await guardTourAPI.getSiteInfo(nluResult.entities.siteName);
+                    break;
+                case "getGuardInfo":
+                    responseMessage = await guardTourAPI.getGuardInfo(nluResult.entities.guardName);
+                    break;
+                case "getSitePerformance":
+                    responseMessage = await guardTourAPI.getSitePerformance(nluResult.entities.siteName, nluResult.entities.timeframe);
+                    break;
+                case "getAllSites":
+                    const sites = await guardTourAPI.getAllSites();
+                    if (Array.isArray(sites) && sites.length > 0) {
+                        responseMessage = "🏢 *All Sites:*\n\n" + sites.map((site, i) => `${i + 1}. ${site.name || "Unnamed Site"}`).join('\n');
+                    } else {
+                        responseMessage = "No sites found in the system.";
+                    }
+                    break;
+                case "getSystemStats":
+                    responseMessage = await guardTourAPI.getSystemStats();
+                    break;
+                default:
+                    responseMessage = "I recognized your intent, but can't handle it yet.";
+            }
+            // If your API functions return objects, use .message property
+            if (responseMessage && responseMessage.message) {
+                responseMessage = responseMessage.message;
+            }
+        }
+
+        // Sanitize responseMessage to remove invalid XML characters
+        responseMessage = String(responseMessage)
+            .replace(/[^\x09\x0A\x0D\x20-\x7F]/g, '') // Remove non-ASCII chars
+            .replace(/[<>&'"]/g, ''); // Remove XML special chars
+
+        // Twilio response
         const twiml = new twilio.twiml.MessagingResponse();
         twiml.message(responseMessage);
-        
-        console.log('✅ Sending response:', responseMessage.substring(0, 100) + '...');
-        
-        res.writeHead(200, {'Content-Type': 'text/xml'});
+
+        res.writeHead(200, { 'Content-Type': 'text/xml' });
         res.end(twiml.toString());
-        
     } catch (error) {
-        console.error('❌ Error processing webhook:', error);
-        
+        console.error("Webhook error:", error);
         const errorResponse = new twilio.twiml.MessagingResponse();
-        errorResponse.message('Sorry, I encountered an error. Please try again.');
-        
-        res.writeHead(200, {'Content-Type': 'text/xml'});
+        errorResponse.message("Sorry, I encountered an error. Please try again.");
+        res.writeHead(200, { 'Content-Type': 'text/xml' });
         res.end(errorResponse.toString());
     }
 });
