@@ -1,7 +1,7 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import fetch from "node-fetch";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const geminiModel = genAI.getGenerativeModel({ model: "gemini-pro" });
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
 export async function getIntentAndEntities(userMessage) {
     const prompt = `
@@ -31,13 +31,37 @@ Now, analyze: "${userMessage}"
 `;
 
     try {
-        const result = await geminiModel.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
+        const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                contents: [
+                    {
+                        parts: [
+                            { text: prompt }
+                        ]
+                    }
+                ]
+            })
+        });
+
+        const data = await response.json();
+        // Extract the model's reply text
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
         const jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        return JSON.parse(jsonString);
+        let parsed;
+        try {
+            parsed = JSON.parse(jsonString);
+        } catch (err) {
+            console.error("Gemini NLU JSON parse error:", err, jsonString);
+            return null;
+        }
+        return parsed;
     } catch (error) {
         console.error("Gemini NLU error:", error);
         return null;
     }
 }
+
