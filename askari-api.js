@@ -260,29 +260,21 @@ export default class GuardTourAPI {
             };
         }
 
-        let message = `🏢 **Site Information**\n\n`;
-        message += `**Name:** ${data.name || data.title || 'N/A'}\n`;
-        message += `**Location:** ${data.address || data.location || 'N/A'}\n`;
-        message += `**Status:** ${data.status || data.isActive ? '✅ Active' : '❌ Inactive'}\n`;
-        
-        if (data.description) {
-            message += `**Description:** ${data.description}\n`;
-        }
-        
-        if (data.contactPerson || data.contact) {
-            message += `**Contact:** ${data.contactPerson || data.contact}\n`;
-        }
-        
-        if (data.phone || data.phoneNumber) {
-            message += `**Phone:** ${data.phone || data.phoneNumber}\n`;
-        }
-
-        if (data.company) {
-            message += `**Company:** ${data.company.name || data.company}\n`;
-        }
+        let message = `🏢 *Site Information*\n\n`;
+        message += `*Name:* ${data.name || data.title || 'N/A'}\n`;
+        message += `*Location:* ${data.address || data.location || 'N/A'}\n`;
+        message += `*Status:* ${data.status !== undefined ? (data.status === 'Active' || data.isActive ? '✅ Active' : '❌ Inactive') : 'N/A'}\n`;
+        message += `*Phone:* ${data.phone || data.phoneNumber || 'N/A'}\n`;
+        message += `*Latitude:* ${data.latitude || 'N/A'}\n`;
+        message += `*Longitude:* ${data.longitude || 'N/A'}\n`;
+        message += `*Required Patrols Per Guard:* ${data.requiredPatrolsPerGuard || 'N/A'}\n`;
+        message += `*Notifications Enabled:* ${data.notificationsEnabled !== undefined ? (data.notificationsEnabled ? 'Yes' : 'No') : 'N/A'}\n`;
+        message += `*Company:* ${data.company?.name || data.company || 'N/A'}\n`;
+        if (data.description) message += `*Description:* ${data.description}\n`;
+        if (data.contactPerson || data.contact) message += `*Contact:* ${data.contactPerson || data.contact}\n`;
 
         return {
-            message: message,
+            message: message.trim(),
             hasData: true,
             data: data
         };
@@ -297,26 +289,21 @@ export default class GuardTourAPI {
             };
         }
 
-        let message = `👮 **Guard Information**\n\n`;
-        message += `**Name:** ${data.firstName || ''} ${data.lastName || data.name || 'N/A'}\n`;
-        message += `**ID:** ${data.id || data.guardId || 'N/A'}\n`;
-        message += `**Email:** ${data.email || 'N/A'}\n`;
-        message += `**Status:** ${data.isActive ? '✅ Active' : '❌ Inactive'}\n`;
-        
-        if (data.phone || data.phoneNumber) {
-            message += `**Phone:** ${data.phone || data.phoneNumber}\n`;
-        }
-
-        if (data.currentSite) {
-            message += `**Current Site:** ${data.currentSite}\n`;
-        }
-
-        if (data.company) {
-            message += `**Company:** ${data.company.name || data.company}\n`;
-        }
+        let message = `👮 *Guard Information*\n\n`;
+        message += `*Name:* ${data.firstName || ''} ${data.lastName || data.name || 'N/A'}\n`;
+        message += `*ID:* ${data.id || data.guardId || 'N/A'}\n`;
+        message += `*Unique ID:* ${data.uniqueId || 'N/A'}\n`;
+        message += `*Email:* ${data.email || 'N/A'}\n`;
+        message += `*Status:* ${data.isActive ? '✅ Active' : '❌ Inactive'}\n`;
+        message += `*Gender:* ${data.gender || 'N/A'}\n`;
+        message += `*Date of Birth:* ${data.dateOfBirth || 'N/A'}\n`;
+        message += `*Type:* ${data.type || 'N/A'}\n`;
+        message += `*Phone:* ${data.phone || data.phoneNumber || 'N/A'}\n`;
+        message += `*Current Site:* ${data.currentSite || 'N/A'}\n`;
+        message += `*Company:* ${data.company?.name || data.company || 'N/A'}\n`;
 
         return {
-            message: message,
+            message: message.trim(),
             hasData: true,
             data: data
         };
@@ -419,5 +406,28 @@ export default class GuardTourAPI {
             console.error('❌ API Connection failed:', error.message);
             return { success: false, message: 'API connection failed' };
         }
+    }
+
+    async getGuardsForSite(siteName) {
+        const site = await this.findSiteByName(siteName);
+        if (!site) {
+            return {
+                message: `Site "${siteName}" not found.`,
+                hasData: false
+            };
+        }
+        const response = await this.authorizedClient.get(`/sites/${site.id}/guards`);
+        const guards = response.data.data;
+        if (!guards.length) {
+            return {
+                message: `No guards found for site "${siteName}".`,
+                hasData: false
+            };
+        }
+        let message = `👮 *Guards for ${site.name}*\n\n`;
+        guards.forEach((g, i) => {
+            message += `${i + 1}. ${g.firstName} ${g.lastName} (${g.status || 'N/A'})\n`;
+        });
+        return { message, hasData: true, data: guards };
     }
 }
