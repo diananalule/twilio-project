@@ -74,6 +74,11 @@ const intentPatterns = {
         /what.*can.*do/i,
         /commands/i,
         /how.*use/i
+    ],
+    'getGuardsForSite': [
+        /list all guards for (.*)/i,
+        /all guard info for (.*)/i,
+        /give me the information of all guards on (.*)/i
     ]
 };
 
@@ -220,6 +225,33 @@ async function generateResponse(intent, entities, userPhone) {
             case 'help':
                 return `🤖 **Askari WhatsApp Assistant**\n\nI can help you with:\n\n📋 **Patrol Reports**\n"Show patrol report for Site Alpha"\n"Get patrol status for Site Beta"\n\n🏢 **Site Information**\n"Tell me about Site Alpha"\n"Site info for Site Beta"\n\n👮 **Guard Information**\n"Guard info for John"\n"Tell me about guard Mary"\n\n📊 **Site Performance**\n"Performance for Site Alpha"\n\n📈 **System Stats**\n"System stats"\n"Dashboard"\n\n📋 **List All Sites**\n"List all sites"\n"Show all sites"\n\nJust ask me naturally - I understand various ways of asking!`;
 
+            case "unsupported":
+                return "Sorry, I can't provide performance data for individual guards at this time.";
+
+            case "getGuardsForSite":
+                if (!entities.siteName) {
+                    return "Please specify the site name to list its guards.";
+                } else {
+                    const guardsResult = await guardTourAPI.getGuardsForSite(entities.siteName);
+                    if (guardsResult.hasData && guardsResult.data.length > 0) {
+                        let message = `👮 *Guards for ${entities.siteName}:*\n\n` +
+                            guardsResult.data.map((g, i) =>
+                                `*${i + 1}.* ${g.firstName} ${g.lastName}\n` +
+                                `  - ID: ${g.id || 'N/A'}\n` +
+                                `  - Status: ${g.isActive ? '✅ Active' : '❌ Inactive'}\n` +
+                                `  - Phone: ${g.phone || g.phoneNumber || 'N/A'}\n` +
+                                `  - Gender: ${g.gender || 'N/A'}\n` +
+                                `  - Date of Birth: ${g.dateOfBirth || 'N/A'}\n` +
+                                `  - Type: ${g.type || 'N/A'}\n` +
+                                `  - Company: ${g.company?.name || g.company || 'N/A'}\n`
+                            ).join('\n\n');
+                        return message;
+                    } else {
+                        return guardsResult.message;
+                    }
+                }
+                break;
+
             default:
                 return `I didn't understand that request. Type "help" to see what I can do for you.`;
         }
@@ -264,6 +296,31 @@ app.post('/webhook', async (req, res) => {
                     break;
                 case "getSystemStats":
                     responseMessage = await guardTourAPI.getSystemStats();
+                    break;
+                case "unsupported":
+                    responseMessage = "Sorry, I can't provide performance data for individual guards at this time.";
+                    break;
+                case "getGuardsForSite":
+                    if (!nluResult.entities.siteName) {
+                        responseMessage = "Please specify the site name to list its guards.";
+                    } else {
+                        const guardsResult = await guardTourAPI.getGuardsForSite(nluResult.entities.siteName);
+                        if (guardsResult.hasData && guardsResult.data.length > 0) {
+                            responseMessage = `👮 *Guards for ${nluResult.entities.siteName}:*\n\n` +
+                                guardsResult.data.map((g, i) =>
+                                    `*${i + 1}.* ${g.firstName} ${g.lastName}\n` +
+                                    `  - ID: ${g.id || 'N/A'}\n` +
+                                    `  - Status: ${g.isActive ? '✅ Active' : '❌ Inactive'}\n` +
+                                    `  - Phone: ${g.phone || g.phoneNumber || 'N/A'}\n` +
+                                    `  - Gender: ${g.gender || 'N/A'}\n` +
+                                    `  - Date of Birth: ${g.dateOfBirth || 'N/A'}\n` +
+                                    `  - Type: ${g.type || 'N/A'}\n` +
+                                    `  - Company: ${g.company?.name || g.company || 'N/A'}\n`
+                                ).join('\n\n');
+                        } else {
+                            responseMessage = guardsResult.message;
+                        }
+                    }
                     break;
                 default:
                     responseMessage = "I recognized your intent, but can't handle it yet.";
