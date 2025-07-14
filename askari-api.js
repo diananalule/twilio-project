@@ -416,8 +416,12 @@ export default class GuardTourAPI {
                 hasData: false
             };
         }
-        const response = await this.authorizedClient.get(`/sites/${site.id}/guards`);
-        const guards = response.data.data;
+        // Fetch all guards and filter by siteId
+        const response = await this.authorizedClient.get('/users/security-guards', { params: { limit: 1000 } });
+        const guards = response.data.data.filter(g => {
+            // Adjust this logic if your guard object links to site by another property
+            return g.siteId === site.id || (g.site && g.site.id === site.id);
+        });
         if (!guards.length) {
             return {
                 message: `No guards found for site "${siteName}".`,
