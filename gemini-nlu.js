@@ -13,6 +13,7 @@ Available intents:
 - getPatrolReports: siteName, date
 - getSiteInfo: siteName
 - getGuardInfo: guardName
+- getGuardsForSite: siteName
 - getSitePerformance: siteName, timeframe
 - getAllSites: (no entities)
 - getSystemStats: (no entities)
@@ -26,6 +27,30 @@ User: "tell me about guard John Smith"
 
 User: "list all sites"
 { "intent": "getAllSites", "entities": {} }
+
+User: "list all guards for Atom site"
+{ "intent": "getGuardsForSite", "entities": { "siteName": "Atom site" } }
+
+User: "give me the information of all guards on Atom site"
+{ "intent": "getGuardsForSite", "entities": { "siteName": "Atom site" } }
+
+User: "all guard info for Atom site"
+{ "intent": "getGuardsForSite", "entities": { "siteName": "Atom site" } }
+
+User: "give me all the guard information of Atom site"
+{ "intent": "getGuardsForSite", "entities": { "siteName": "Atom site" } }
+
+User: "show me all guards for Test site"
+{ "intent": "getGuardsForSite", "entities": { "siteName": "Test site" } }
+
+User: "guard info for Walker Adams"
+{ "intent": "getGuardInfo", "entities": { "guardName": "Walker Adams" } }
+
+User: "give me information about guard Avo Yiga"
+{ "intent": "getGuardInfo", "entities": { "guardName": "Avo Yiga" } }
+
+User: "list guards for Sheraton Hotel"
+{ "intent": "getGuardsForSite", "entities": { "siteName": "Sheraton Hotel" } }
 
 Now, analyze: "${userMessage}"
 `;
