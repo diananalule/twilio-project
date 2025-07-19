@@ -194,6 +194,34 @@ export default class GuardTourAPI {
         }
     }
 
+    // Get call logs for a site
+    async getCallLogsForSite(siteName, params = {}) {
+        const site = await this.findSiteByName(siteName);
+        if (!site) {
+            return { message: `Site "${siteName}" not found.`, hasData: false };
+        }
+        const response = await this.authorizedClient.get(`/sites/${site.id}/call-logs`, { params });
+        return {
+            message: `Call logs for ${site.name}`,
+            hasData: Array.isArray(response.data.data) && response.data.data.length > 0,
+            data: response.data.data
+        };
+    }
+
+    // Get shifts for a site
+    async getShiftsForSite(siteName, params = {}) {
+        const site = await this.findSiteByName(siteName);
+        if (!site) {
+            return { message: `Site "${siteName}" not found.`, hasData: false };
+        }
+        const response = await this.authorizedClient.get(`/sites/${site.id}/shifts`, { params });
+        return {
+            message: `Shifts for ${site.name}`,
+            hasData: Array.isArray(response.data.data) && response.data.data.length > 0,
+            data: response.data.data
+        };
+    }
+
     // Helper method to find site by name
     async findSiteByName(siteName) {
         try {
@@ -416,22 +444,76 @@ export default class GuardTourAPI {
                 hasData: false
             };
         }
-        // Fetch all guards and filter by siteId
-        const response = await this.authorizedClient.get('/users/security-guards', { params: { limit: 1000 } });
-        const guards = response.data.data.filter(g => {
-            // Adjust this logic if your guard object links to site by another property
-            return g.siteId === site.id || (g.site && g.site.id === site.id);
-        });
+
+        // 1. Try direct link via /users/security-guards
+        const guardsResponse = await this.authorizedClient.get('/users/security-guards', { params: { limit: 1000 } });
+        let guards = guardsResponse.data.data.filter(g =>
+            g.siteId === site.id ||
+            (g.site && g.site.id === site.id) ||
+            (Array.isArray(g.sites) && g.sites.some(s => s.id === site.id))
+        );
+
+        // 2. If no guards found, fallback to cross-referencing patrols
+        if (!guards.length) {
+            // Get patrols for this site
+            const patrolsResponse = await this.unauthorizedClient.get(`/sites/${site.id}/patrols`);
+            const patrols = patrolsResponse.data.data || [];
+            // Extract unique guard IDs from patrols
+            const guardIds = [
+                ...new Set(
+                    patrols
+                        .map(p => p.securityGuard && p.securityGuard.id)
+                        .filter(Boolean)
+                )
+            ];
+            // Fetch all guards again and filter by those IDs
+            guards = guardsResponse.data.data.filter(g => guardIds.includes(g.id));
+        }
+
         if (!guards.length) {
             return {
                 message: `No guards found for site "${siteName}".`,
                 hasData: false
             };
         }
+
         let message = `👮 *Guards for ${site.name}*\n\n`;
         guards.forEach((g, i) => {
-            message += `${i + 1}. ${g.firstName} ${g.lastName} (${g.status || 'N/A'})\n`;
+            message += `${i + 1}. ${g.firstName} ${g.lastName}\n` +
+                       `  - ID: ${g.id || 'N/A'}\n` +
+                       `  - Status: ${g.isActive ? '✅ Active' : '❌ Inactive'}\n` +
+                       `  - Phone: ${g.phone || g.phoneNumber || 'N/A'}\n` +
+                       `  - Gender: ${g.gender || 'N/A'}\n` +
+                       `  - Date of Birth: ${g.dateOfBirth || 'N/A'}\n` +
+                       `  - Type: ${g.type || 'N/A'}\n` +
+                       `  - Company: ${g.company?.name || g.company || 'N/A'}\n\n`;
         });
         return { message, hasData: true, data: guards };
     }
 }
+
+// Example test functions to add in your test runner
+
+async function testCallLogs(api, siteName) {
+    const result = await api.getCallLogsForSite(siteName);
+    console.log(result.message);
+    if (result.hasData) {
+        console.log(result.data.slice(0, 3)); // Show first 3 logs
+    } else {
+        console.log("No call logs found.");
+    }
+}
+
+async function testShifts(api, siteName) {
+    const result = await api.getShiftsForSite(siteName);
+    console.log(result.message);
+    if (result.hasData) {
+        console.log(result.data.slice(0, 3)); // Show first 3 shifts
+    } else {
+        console.log("No shifts found.");
+    }
+}
+
+// Usage in your main test flow:
+//await testCallLogs(guardTourAPI, "Atom site");
+//await testShifts(guardTourAPI, "Atom site");
