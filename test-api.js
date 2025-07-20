@@ -178,6 +178,71 @@ class APITester {
         }
     }
 
+    // Test getting guards for a site
+    async testGetGuardsForSite(siteName) {
+        try {
+            const result = await this.api.getGuardsForSite(siteName);
+            const success = result.hasData;
+            this.logTest('Get Guards For Site', success, result.message, result.data);
+            return success ? result : null;
+        } catch (error) {
+            this.logTest('Get Guards For Site', false, error.message);
+            return null;
+        }
+    }
+
+    // Test getting call logs for a site
+    async testGetCallLogsForSite(siteName) {
+        try {
+            const result = await this.api.getCallLogsForSite(siteName);
+            const success = result.hasData;
+            this.logTest('Get Call Logs For Site', success, result.message, { count: result.count });
+            return success ? result : null;
+        } catch (error) {
+            this.logTest('Get Call Logs For Site', false, error.message);
+            return null;
+        }
+    }
+
+    // Test getting shifts for a site
+    async testGetShiftsForSite(siteName) {
+        try {
+            const result = await this.api.getShiftsForSite(siteName);
+            const success = result.hasData;
+            this.logTest('Get Shifts For Site', success, result.message, { count: result.count });
+            return success ? result : null;
+        } catch (error) {
+            this.logTest('Get Shifts For Site', false, error.message);
+            return null;
+        }
+    }
+
+    // Test getting notifications for a site
+    async testGetNotificationsForSite(siteName) {
+        try {
+            const result = await this.api.getNotificationsForSite(siteName);
+            const success = result.hasData;
+            this.logTest('Get Notifications For Site', success, result.message, { count: result.count });
+            return success ? result : null;
+        } catch (error) {
+            this.logTest('Get Notifications For Site', false, error.message);
+            return null;
+        }
+    }
+
+    // Test getting guard performance
+    async testGetGuardPerformance(guardName) {
+        try {
+            const result = await this.api.getGuardPerformance(guardName);
+            const success = result.hasData;
+            this.logTest('Get Guard Performance', success, result.message, { count: result.count });
+            return success ? result : null;
+        } catch (error) {
+            this.logTest('Get Guard Performance', false, error.message);
+            return null;
+        }
+    }
+
     // Run all tests
     async runAllTests() {
         console.log('🚀 Starting GuardTour API Tests...\n');
@@ -199,10 +264,10 @@ class APITester {
 
         // Test 3: Get all sites (to get a real site name for testing)
         const sites = await this.testGetAllSites();
-        const testSite = sites && sites.length > 0 ? sites[0].name : CONFIG.testSiteName;
+        const testSite = sites && sites.length > 0 ? CONFIG.testSiteName: sites[0].name;
 
         // Test 4: Find site by name
-        const foundSite = await this.testFindSiteByName(CONFIG.testSiteName);
+        await this.testFindSiteByName(CONFIG.testSiteName);
 
         // Test 5: Get site info
         await this.testGetSiteInfo(CONFIG.testSiteName);
@@ -227,6 +292,21 @@ class APITester {
 
         // Test 12: Get system stats
         await this.testGetSystemStats();
+
+        // Test 13: Get guards for site
+        await this.testGetGuardsForSite(testSite);
+
+        // Test 14: Get call logs for site
+        await this.testGetCallLogsForSite(testSite);
+
+        // Test 15: Get shifts for site
+        await this.testGetShiftsForSite(testSite);
+
+        // Test 16: Get notifications for site
+        await this.testGetNotificationsForSite(testSite);
+
+        // Test 17: Get guard performance
+        await this.testGetGuardPerformance(CONFIG.testGuardName);
 
         // Print summary
         this.printSummary();
@@ -284,8 +364,18 @@ class APITester {
                 return await this.testGetSitePerformance(args[0] || CONFIG.testSiteName, args[1] || 'today');
             case 'stats':
                 return await this.testGetSystemStats();
+            case 'guards':
+                return await this.testGetGuardsForSite(args[0] || CONFIG.testSiteName);
+            case 'call-logs':
+                return await this.testGetCallLogsForSite(args[0] || CONFIG.testSiteName);
+            case 'shifts':
+                return await this.testGetShiftsForSite(args[0] || CONFIG.testSiteName);
+            case 'notifications':
+                return await this.testGetNotificationsForSite(args[0] || CONFIG.testSiteName);
+            case 'guard-performance':
+                return await this.testGetGuardPerformance(args[0] || CONFIG.testGuardName);
             default:
-                console.log('❌ Unknown feature. Available: connection, auth, sites, site, patrols, patrols-date, guard, performance, stats');
+                console.log('❌ Unknown feature. Available: connection, auth, sites, site, patrols, patrols-date, guard, performance, stats, guards, call-logs, shifts, notifications, guard-performance');
                 return false;
         }
     }
